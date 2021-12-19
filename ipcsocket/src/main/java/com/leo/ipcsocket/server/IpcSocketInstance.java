@@ -1,8 +1,13 @@
 package com.leo.ipcsocket.server;
 
+import android.text.TextUtils;
 import android.util.Log;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
+import com.leo.ipcsocket.util.LogUtils;
 import com.leo.ipcsocket.util.ThreadUtils;
 
 import java.io.BufferedReader;
@@ -17,11 +22,12 @@ public class IpcSocketInstance {
     private static final String TAG = "IpcSocketInstance";
     private volatile boolean mIsServiceDestroyed;
     private volatile PrintWriter writer;
+    private volatile String pkgName;
 
-    private volatile IServerMsgCallback mServerMsgCallback;
+    private final IBinderCallback mBinderCallback;
 
-    public IpcSocketInstance(Socket client, IServerMsgCallback iServerMsgCallback) {
-        this.mServerMsgCallback = iServerMsgCallback;
+    public IpcSocketInstance(Socket client, IBinderCallback iBinderCallback) {
+        this.mBinderCallback = iBinderCallback;
         new Thread() {
             @Override
             public void run() {
@@ -56,18 +62,56 @@ public class IpcSocketInstance {
             try {
                 String msg = reader.readLine();
                 if (msg == null) {
+                    LogUtils.e(TAG, "msg is null.");
                     break;
                 }
-                if (mServerMsgCallback != null) {
-                    mServerMsgCallback.onReceive(msg);
+                if (mBinderCallback != null) {
+                    if (!TextUtils.isEmpty(this.pkgName)) {
+                        mBinderCallback.onMsgCallback(this.pkgName, msg);
+                    } else {
+                        String pkgName = isRegisterPkgInfo(msg);
+                        if (!TextUtils.isEmpty(pkgName)) {
+                            this.pkgName = pkgName;
+                            mBinderCallback.onRegister(pkgName, IpcSocketInstance.this);
+                        } else {
+                            LogUtils.e(TAG, "pkgName is null or empty.");
+                        }
+                    }
                 }
             } catch (Exception | Error e) {
                 e.printStackTrace();
             }
         }
-
+        if (mBinderCallback != null) {
+            mBinderCallback.onUnregister(pkgName);
+        }
         // 关闭通信
         IOUtils.close(writer, reader, client);
+    }
+
+    /**
+     * 是否是注册包名信息
+     *
+     * @param msg
+     * @return
+     */
+    private String isRegisterPkgInfo(String msg) {
+        if (TextUtils.isEmpty(msg)) {
+            return "";
+        }
+        try {
+            JSONObject jsonObject = JSON.parseObject(msg);
+            String nameSpace = jsonObject.getString("nameSpace");
+            String name = jsonObject.getString("name");
+            if (RegisterPkgProtocol.NAME_SPACE.equals(nameSpace)
+                    && RegisterPkgProtocol.NAME.equals(name)) {
+                JSONObject data = jsonObject.getJSONObject("data");
+                return data.getString("pkgName");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
     /**

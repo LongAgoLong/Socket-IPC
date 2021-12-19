@@ -109,9 +109,9 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     }
 
     @Override
-    public void onReceive(String msg) {
+    public void onReceive(String pkgName, String msg) {
         for (IServerMsgCallback iServerMsgCallback : iServerMsgCallbackList) {
-            iServerMsgCallback.onReceive(msg);
+            iServerMsgCallback.onReceive(pkgName, msg);
         }
     }
 }

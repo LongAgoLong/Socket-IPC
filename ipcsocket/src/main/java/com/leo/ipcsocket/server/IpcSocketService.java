@@ -6,21 +6,18 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.text.TextUtils;
 
-import com.leo.ipcsocket.util.IOUtils;
+import androidx.collection.ArrayMap;
+
 import com.leo.ipcsocket.util.LogUtils;
 import com.leo.ipcsocket.util.SocketParams;
 import com.leo.ipcsocket.util.ThreadUtils;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collection;
 
-public class IpcSocketService extends Service {
+public class IpcSocketService extends Service implements IBinderCallback {
     private boolean isServiceDestroyed = false;
     private static final String TAG = "IpcSocketService";
 
@@ -28,9 +25,12 @@ public class IpcSocketService extends Service {
      * 通过binder实现调用者client与Service之间的通信
      */
     private final SocketBinder mBinder = new SocketBinder();
-    private volatile PrintWriter printWriter;
 
     private volatile IServerMsgCallback iServerMsgCallback;
+    /**
+     * 存放实例
+     */
+    private final ArrayMap<String, IpcSocketInstance> ipcSocketInstancesMap = new ArrayMap<>();
 
     @Override
     public void onCreate() {
@@ -41,6 +41,25 @@ public class IpcSocketService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
+    }
+
+    @Override
+    public void onRegister(String pkg, IpcSocketInstance ipcSocketInstance) {
+        LogUtils.i(TAG, "onRegister: pkg = " + pkg);
+        ipcSocketInstancesMap.put(pkg, ipcSocketInstance);
+    }
+
+    @Override
+    public void onUnregister(String pkg) {
+        LogUtils.i(TAG, "onUnregister: pkg = " + pkg);
+        ipcSocketInstancesMap.remove(pkg);
+    }
+
+    @Override
+    public void onMsgCallback(String pkgName, String msg) {
+        if (iServerMsgCallback != null) {
+            iServerMsgCallback.onReceive(pkgName, msg);
+        }
     }
 
     private class TcpServer implements Runnable {
@@ -55,43 +74,13 @@ public class IpcSocketService extends Service {
             }
             while (!isServiceDestroyed) {
                 try {
-                    // 接受客户端请求，并且阻塞直到接收到消息
                     final Socket client = serverSocket.accept();
-                    new Thread() {
-                        @Override
-                        public void run() {
-                            try {
-                                responseClient(client);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }.start();
+                    new IpcSocketInstance(client, IpcSocketService.this);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         }
-    }
-
-    private void responseClient(Socket client) throws IOException {
-        // 用于接收客户端消息
-        BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-        // 用于向客户端发送消息
-        printWriter = new PrintWriter(new BufferedWriter(new
-                OutputStreamWriter(client.getOutputStream())), true);
-        while (!isServiceDestroyed) {
-            String str = in.readLine();
-            if (TextUtils.isEmpty(str)) {
-                // 客户端断开了连接
-                break;
-            }
-            if (iServerMsgCallback != null) {
-                iServerMsgCallback.onReceive(str);
-            }
-            LogUtils.i(TAG, str);
-        }
-        IOUtils.close(printWriter, in, client);
     }
 
     @Override
@@ -110,12 +99,40 @@ public class IpcSocketService extends Service {
             return;
         }
         ThreadUtils.getInstance().getExecutorService().execute(() -> {
-            if (printWriter != null) {
-                printWriter.println(msg);
+            Collection<IpcSocketInstance> socketInstanceCollection = ipcSocketInstancesMap.values();
+            for (IpcSocketInstance ipcSocketInstance : socketInstanceCollection) {
+                ipcSocketInstance.send(msg);
             }
         });
     }
 
+    /**
+     * 发送消息给指定包名
+     *
+     * @param pkg
+     * @param msg
+     */
+    public void sendMsg(String pkg, String msg) {
+        if (TextUtils.isEmpty(msg)) {
+            return;
+        }
+        if (TextUtils.isEmpty(pkg)) {
+            sendMsg(msg);
+            return;
+        }
+        ThreadUtils.getInstance().getExecutorService().execute(() -> {
+            IpcSocketInstance ipcSocketInstance = ipcSocketInstancesMap.get(pkg);
+            if (ipcSocketInstance != null) {
+                ipcSocketInstance.send(msg);
+            }
+        });
+    }
+
+    /**
+     * 设置消息回调
+     *
+     * @param iServerMsgCallback
+     */
     public void setMsgCallback(IServerMsgCallback iServerMsgCallback) {
         this.iServerMsgCallback = iServerMsgCallback;
     }

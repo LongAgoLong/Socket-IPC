@@ -1,8 +1,11 @@
 package com.leo.ipcsocket.client;
 
+import android.content.Context;
 import android.os.SystemClock;
 import android.text.TextUtils;
 
+import com.alibaba.fastjson.JSON;
+import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
 import com.leo.ipcsocket.util.LogUtils;
 import com.leo.ipcsocket.util.SocketParams;
@@ -42,6 +45,7 @@ public class IpcClientHelper {
      * 消息接收监听
      */
     private final ArrayList<IClientMsgCallback> mClientMsgCallbackList = new ArrayList<>();
+    private volatile String packageName;
 
     private IpcClientHelper() {
     }
@@ -60,11 +64,12 @@ public class IpcClientHelper {
     /**
      * 初始化
      */
-    public synchronized void init(boolean isDebug) {
+    public synchronized void init(Context context, boolean isDebug) {
         if (isInit) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
+        packageName = context.getPackageName();
         isInit = true;
         isFinishing = false;
         LogUtils.openLog(isDebug);
@@ -131,13 +136,13 @@ public class IpcClientHelper {
         if (TextUtils.isEmpty(msg)) {
             return;
         }
-        if (mPrintWriter == null) {
+        if (!isConnected()) {
             if (isMustSend) {
                 cacheMsg(msg);
             }
         } else {
             ThreadUtils.getInstance().getExecutorService().execute(() -> {
-                if (mPrintWriter != null) {
+                if (isConnected()) {
                     mPrintWriter.println(msg);
                 } else if (isMustSend) {
                     cacheMsg(msg);
@@ -146,6 +151,11 @@ public class IpcClientHelper {
         }
     }
 
+    /**
+     * 缓存消息
+     *
+     * @param msg
+     */
     private void cacheMsg(String msg) {
         synchronized (LOCK) {
             LogUtils.d(TAG, "cacheMsg: msg = " + msg);
@@ -171,6 +181,11 @@ public class IpcClientHelper {
                 SystemClock.sleep(1000L * (Math.max(counter++, 20)));
             }
         }
+        // 发送注册pkg消息
+        RegisterPkgProtocol registerPkgProtocol = new RegisterPkgProtocol(this.packageName);
+        String info = JSON.toJSONString(registerPkgProtocol);
+        LogUtils.i(TAG, "register: info = " + info);
+        mPrintWriter.println(info);
         // 处理缓存消息
         synchronized (LOCK) {
             if (!mCacheMsgList.isEmpty()) {

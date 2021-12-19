@@ -20,7 +20,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        IpcServerHelper.getInstance().addMsgCallback(msg -> runOnUiThread(() -> msgTv.append("客户端：\n" + msg + "\n")));
+        IpcServerHelper.getInstance().addMsgCallback((pkgName, msg) -> {
+            runOnUiThread(() -> msgTv.append("客户端：\n" + msg + "\n"));
+        });
         IpcServerHelper.getInstance().init(this, true);
 
         msgTv = findViewById(R.id.msgTv);
