@@ -22,8 +22,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Button bindSocketBtn = findViewById(R.id.bindSocketBtn);
         bindSocketBtn.setOnClickListener(view -> {
+            IpcClientHelper.getInstance().addMsgCallback(msg -> runOnUiThread(() -> msgTv.append("服务端：\n" + msg + "\n")));
             IpcClientHelper.getInstance().init(true);
-            IpcClientHelper.getInstance().setMsgCallback(msg -> runOnUiThread(() -> msgTv.append("服务端：\n" + msg + "\n")));
         });
 
         Button sendMsgBtn = findViewById(R.id.sendMsgBtn);

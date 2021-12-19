@@ -5,9 +5,9 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.leo.ipcsocket.util.IOUtils;
+import com.leo.ipcsocket.util.LogUtils;
 import com.leo.ipcsocket.util.SocketParams;
 import com.leo.ipcsocket.util.ThreadUtils;
 
@@ -29,6 +29,8 @@ public class IpcSocketService extends Service {
      */
     private final SocketBinder mBinder = new SocketBinder();
     private volatile PrintWriter printWriter;
+
+    private volatile IServerMsgCallback iServerMsgCallback;
 
     @Override
     public void onCreate() {
@@ -78,17 +80,16 @@ public class IpcSocketService extends Service {
         // 用于向客户端发送消息
         printWriter = new PrintWriter(new BufferedWriter(new
                 OutputStreamWriter(client.getOutputStream())), true);
-        printWriter.println("你好，我是服务端");
         while (!isServiceDestroyed) {
             String str = in.readLine();
             if (TextUtils.isEmpty(str)) {
                 // 客户端断开了连接
                 break;
             }
-            String message = "收到了客户端的信息为：" + str;
-            Log.i(TAG, str);
-            // 从客户端收到的消息加工再发送给客户端
-            printWriter.println(message);
+            if (iServerMsgCallback != null) {
+                iServerMsgCallback.onReceive(str);
+            }
+            LogUtils.i(TAG, str);
         }
         IOUtils.close(printWriter, in, client);
     }
@@ -113,6 +114,10 @@ public class IpcSocketService extends Service {
                 printWriter.println(msg);
             }
         });
+    }
+
+    public void setMsgCallback(IServerMsgCallback iServerMsgCallback) {
+        this.iServerMsgCallback = iServerMsgCallback;
     }
 
     public class SocketBinder extends Binder {

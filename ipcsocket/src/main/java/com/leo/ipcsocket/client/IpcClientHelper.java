@@ -41,7 +41,7 @@ public class IpcClientHelper {
     /**
      * 消息接收监听
      */
-    private volatile IClientMsgCallback iClientMsgCallback;
+    private final ArrayList<IClientMsgCallback> mClientMsgCallbackList = new ArrayList<>();
 
     private IpcClientHelper() {
     }
@@ -89,12 +89,27 @@ public class IpcClientHelper {
     }
 
     /**
-     * 设置消息回调
+     * 添加消息回调
      *
      * @param iClientMsgCallback
      */
-    public void setMsgCallback(IClientMsgCallback iClientMsgCallback) {
-        this.iClientMsgCallback = iClientMsgCallback;
+    public void addMsgCallback(IClientMsgCallback iClientMsgCallback) {
+        if (iClientMsgCallback == null || mClientMsgCallbackList.contains(iClientMsgCallback)) {
+            return;
+        }
+        this.mClientMsgCallbackList.add(iClientMsgCallback);
+    }
+
+    /**
+     * 移除消息回调
+     *
+     * @param iClientMsgCallback
+     */
+    public void removeMsgCallback(IClientMsgCallback iClientMsgCallback) {
+        if (iClientMsgCallback == null) {
+            return;
+        }
+        this.mClientMsgCallbackList.remove(iClientMsgCallback);
     }
 
     /**
@@ -173,8 +188,10 @@ public class IpcClientHelper {
             while (!isFinishing) {
                 final String msg = br.readLine();
                 LogUtils.d(TAG, "receiver: msg = " + msg);
-                if (null != msg && iClientMsgCallback != null) {
-                    iClientMsgCallback.onReceive(msg);
+                if (null != msg) {
+                    for (IClientMsgCallback iClientMsgCallback : mClientMsgCallbackList) {
+                        iClientMsgCallback.onReceive(msg);
+                    }
                 }
             }
             IOUtils.close(mPrintWriter, br, socket);

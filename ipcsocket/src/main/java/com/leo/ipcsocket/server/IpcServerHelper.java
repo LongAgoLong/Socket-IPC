@@ -5,15 +5,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
-import android.os.SystemClock;
 
 import com.leo.ipcsocket.util.LogUtils;
 
-public class IpcServerHelper implements ServiceConnection {
+import java.util.ArrayList;
+
+public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     private static final String TAG = "IpcServerHelper";
     private static IpcServerHelper mInstance;
 
     private IpcSocketService.SocketBinder socketBinder;
+    /**
+     * 消息接收监听
+     */
+    private final ArrayList<IServerMsgCallback> iServerMsgCallbackList = new ArrayList<>();
 
     private IpcServerHelper() {
     }
@@ -37,6 +42,7 @@ public class IpcServerHelper implements ServiceConnection {
      */
     public void init(Context context, boolean isDebug) {
         if (isConnected()) {
+            LogUtils.e(TAG, "Already initialized.");
             return;
         }
         LogUtils.openLog(isDebug);
@@ -50,27 +56,62 @@ public class IpcServerHelper implements ServiceConnection {
      * @param context
      */
     public void finish(Context context) {
+        LogUtils.d(TAG, "finish");
         context.unbindService(this);
         context.stopService(new Intent(context, IpcSocketService.class));
     }
 
-    public boolean isConnected() {
+    private boolean isConnected() {
         return socketBinder != null;
+    }
+
+    /**
+     * 添加监听
+     *
+     * @param iServerMsgCallback
+     */
+    public void addMsgCallback(IServerMsgCallback iServerMsgCallback) {
+        if (iServerMsgCallback == null || iServerMsgCallbackList.contains(iServerMsgCallback)) {
+            return;
+        }
+        this.iServerMsgCallbackList.add(iServerMsgCallback);
+    }
+
+    /**
+     * 移除消息监听
+     *
+     * @param iServerMsgCallback
+     */
+    public void removeMsgCallback(IServerMsgCallback iServerMsgCallback) {
+        if (iServerMsgCallback == null) {
+            return;
+        }
+        this.iServerMsgCallbackList.remove(iServerMsgCallback);
     }
 
     @Override
     public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+        LogUtils.d(TAG, "onServiceConnected");
         socketBinder = (IpcSocketService.SocketBinder) iBinder;
+        socketBinder.getService().setMsgCallback(this);
     }
 
     @Override
     public void onServiceDisconnected(ComponentName componentName) {
+        LogUtils.d(TAG, "onServiceDisconnected");
         socketBinder = null;
     }
 
     public void sendMsg(String msg) {
-        if (socketBinder != null) {
-            socketBinder.getService().sendMsg("服务端小冰测试数据：" + SystemClock.elapsedRealtime());
+        if (isConnected()) {
+            socketBinder.getService().sendMsg(msg);
+        }
+    }
+
+    @Override
+    public void onReceive(String msg) {
+        for (IServerMsgCallback iServerMsgCallback : iServerMsgCallbackList) {
+            iServerMsgCallback.onReceive(msg);
         }
     }
 }
