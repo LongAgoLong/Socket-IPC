@@ -61,8 +61,8 @@ public class IpcSocketInstance {
         while (!mIsServiceDestroyed) {
             try {
                 String msg = reader.readLine();
+                LogUtils.i(TAG, "receiver: msg = " + msg);
                 if (msg == null) {
-                    LogUtils.e(TAG, "msg is null.");
                     break;
                 }
                 if (mBinderCallback != null) {

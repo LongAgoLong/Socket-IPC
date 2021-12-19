@@ -175,10 +175,10 @@ public class IpcClientHelper {
                 socket = new Socket("localhost", SocketParams.PORT);
                 mPrintWriter = new PrintWriter(new BufferedWriter(new
                         OutputStreamWriter(socket.getOutputStream())), true);
-                LogUtils.i(TAG, "服务器连接成功");
+                LogUtils.i(TAG, "socket服务连接成功");
             } catch (IOException e) {
-                LogUtils.e(TAG, "连接TCP服务失败, 重试...");
-                SystemClock.sleep(1000L * (Math.max(counter++, 20)));
+                LogUtils.e(TAG, "socket连接TCP服务失败, 重试...");
+                SystemClock.sleep(1000L * (Math.min(counter++, 10)));
             }
         }
         // 发送注册pkg消息
@@ -203,15 +203,18 @@ public class IpcClientHelper {
             while (!isFinishing) {
                 final String msg = br.readLine();
                 LogUtils.d(TAG, "receiver: msg = " + msg);
-                if (null != msg) {
-                    for (IClientMsgCallback iClientMsgCallback : mClientMsgCallbackList) {
-                        iClientMsgCallback.onReceive(msg);
-                    }
+                if (msg == null) {
+                    break;
+                }
+                for (IClientMsgCallback iClientMsgCallback : mClientMsgCallbackList) {
+                    iClientMsgCallback.onReceive(msg);
                 }
             }
             IOUtils.close(mPrintWriter, br, socket);
         } catch (IOException e) {
             e.printStackTrace();
         }
+        // 重新绑定
+        connectSocketServer();
     }
 }

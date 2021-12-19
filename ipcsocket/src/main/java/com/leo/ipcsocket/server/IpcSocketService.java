@@ -86,6 +86,10 @@ public class IpcSocketService extends Service implements IBinderCallback {
     @Override
     public void onDestroy() {
         isServiceDestroyed = true;
+        Collection<IpcSocketInstance> socketInstanceCollection = ipcSocketInstancesMap.values();
+        for (IpcSocketInstance ipcSocketInstance : socketInstanceCollection) {
+            ipcSocketInstance.finish();
+        }
         super.onDestroy();
     }
 
