@@ -9,6 +9,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 
 import com.alibaba.fastjson.JSON;
+import com.leo.ipcsocket.bean.CacheMsgEntity;
 import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
 import com.leo.ipcsocket.util.LogUtils;
@@ -33,7 +34,7 @@ public class IpcClientHelper {
     /**
      * 缓存的消息
      */
-    private final ArrayList<String> mCacheMsgList = new ArrayList<>();
+    private final ArrayList<CacheMsgEntity> mCacheMsgList = new ArrayList<>();
     /**
      * 是否已经初始化
      */
@@ -51,6 +52,10 @@ public class IpcClientHelper {
      */
     private final ArrayList<IClientMsgCallback> mClientMsgCallbackList = new ArrayList<>();
     private volatile String packageName;
+    /**
+     * 缓存消息有效时长
+     */
+    private volatile int msgEffectiveSecond;
 
     private IpcClientHelper() {
     }
@@ -68,12 +73,17 @@ public class IpcClientHelper {
 
     /**
      * 初始化
+     *
+     * @param context
+     * @param msgEffectiveSecond 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
+     * @param isDebug            是否debug
      */
-    public synchronized void init(Context context, boolean isDebug) {
+    public synchronized void init(Context context, int msgEffectiveSecond, boolean isDebug) {
         if (isInit) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
+        this.msgEffectiveSecond = msgEffectiveSecond;
         packageName = getProcessName(context);
         isInit = true;
         isFinishing = false;
@@ -162,22 +172,22 @@ public class IpcClientHelper {
     /**
      * 发送消息
      *
-     * @param msg        格式消息
-     * @param isMustSend 是否必须发送，true-服务未连接时缓存消息
+     * @param msg            格式消息
+     * @param isMustBeServed 是否必须送达，true-服务未连接时缓存消息
      */
-    public void sendMsg(String msg, boolean isMustSend) {
+    public void sendMsg(String msg, boolean isMustBeServed) {
         if (TextUtils.isEmpty(msg)) {
             return;
         }
         if (!isConnected()) {
-            if (isMustSend) {
+            if (isMustBeServed) {
                 cacheMsg(msg);
             }
         } else {
             ThreadUtils.getInstance().getExecutorService().execute(() -> {
                 if (isConnected()) {
                     mPrintWriter.println(msg);
-                } else if (isMustSend) {
+                } else if (isMustBeServed) {
                     cacheMsg(msg);
                 }
             });
@@ -192,7 +202,15 @@ public class IpcClientHelper {
     private void cacheMsg(String msg) {
         synchronized (LOCK) {
             LogUtils.d(TAG, "cacheMsg: msg = " + msg);
-            mCacheMsgList.add(msg);
+            CacheMsgEntity entity;
+            if (mCacheMsgList.size() > 30) {
+                entity = mCacheMsgList.remove(0);
+                entity.creationTime = SystemClock.elapsedRealtime();
+                entity.msg = msg;
+            } else {
+                entity = new CacheMsgEntity(msg);
+            }
+            mCacheMsgList.add(entity);
         }
     }
 
@@ -222,10 +240,13 @@ public class IpcClientHelper {
         // 处理缓存消息
         synchronized (LOCK) {
             if (!mCacheMsgList.isEmpty()) {
-                Iterator<String> iterator = mCacheMsgList.iterator();
+                long realTime = SystemClock.elapsedRealtime();
+                Iterator<CacheMsgEntity> iterator = mCacheMsgList.iterator();
                 while (iterator.hasNext()) {
-                    String s = iterator.next();
-                    mPrintWriter.println(s);
+                    CacheMsgEntity s = iterator.next();
+                    if (Math.abs(realTime - s.creationTime) / 1000 <= msgEffectiveSecond) {
+                        mPrintWriter.println(s.msg);
+                    }
                     iterator.remove();
                 }
             }

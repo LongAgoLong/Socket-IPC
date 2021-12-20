@@ -19,9 +19,9 @@
         android:id="@+id/etSend"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/sendMsgBtn"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toLeftOf="@+id/sendMsgBtn" />
+        app:layout_constraintRight_toRightOf="parent" />
 
     <Button
         android:id="@+id/sendMsgBtn"
@@ -29,7 +29,24 @@
         android:layout_height="wrap_content"
         android:text="发送消息"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/etSend"
-        app:layout_constraintRight_toRightOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/sendMsgOneBtn" />
 
+    <Button
+        android:id="@+id/sendMsgOneBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="发送①消息"
+        app:layout_constraintLeft_toRightOf="@+id/sendMsgBtn"
+        app:layout_constraintRight_toLeftOf="@+id/sendMsgTwoBtn"
+        app:layout_constraintTop_toTopOf="@+id/sendMsgBtn" />
+
+    <Button
+        android:id="@+id/sendMsgTwoBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="发送②消息"
+        app:layout_constraintLeft_toRightOf="@+id/sendMsgOneBtn"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/sendMsgBtn" />
 </androidx.constraintlayout.widget.ConstraintLayout>

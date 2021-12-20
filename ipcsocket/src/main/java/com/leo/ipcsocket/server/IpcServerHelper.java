@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 
+import androidx.annotation.NonNull;
+
 import com.leo.ipcsocket.util.LogUtils;
 
 import java.util.ArrayList;
@@ -15,6 +17,11 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     private static IpcServerHelper mInstance;
 
     private IpcSocketService.SocketBinder socketBinder;
+
+    /**
+     * 消息有效期限
+     */
+    private volatile int msgEffectiveSecond;
     /**
      * 消息接收监听
      */
@@ -38,13 +45,15 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
      * 初始化
      *
      * @param context
-     * @param isDebug
+     * @param msgEffectiveSecond 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
+     * @param isDebug            是否debug
      */
-    public void init(Context context, boolean isDebug) {
+    public void init(Context context, int msgEffectiveSecond, boolean isDebug) {
         if (isConnected()) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
+        this.msgEffectiveSecond = msgEffectiveSecond;
         LogUtils.openLog(isDebug);
         Intent intent = new Intent(context, IpcSocketService.class);
         context.bindService(intent, this, Context.BIND_AUTO_CREATE);
@@ -94,6 +103,7 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
         LogUtils.d(TAG, "onServiceConnected");
         socketBinder = (IpcSocketService.SocketBinder) iBinder;
         socketBinder.getService().setMsgCallback(this);
+        socketBinder.getService().setMsgEffectiveSecond(msgEffectiveSecond);
     }
 
     @Override
@@ -102,9 +112,15 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
         socketBinder = null;
     }
 
-    public void sendMsg(String msg) {
+    public void sendMsg(@NonNull String msg) {
         if (isConnected()) {
             socketBinder.getService().sendMsg(msg);
+        }
+    }
+
+    public void sendMsg(@NonNull String pkgName, @NonNull String msg, boolean isMustBeServed) {
+        if (isConnected()) {
+            socketBinder.getService().sendMsg(pkgName, msg, isMustBeServed);
         }
     }
 

@@ -2,13 +2,11 @@ package com.leo.socketipc;
 
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.leo.ipcsocket.server.IServerMsgCallback;
 import com.leo.ipcsocket.server.IpcServerHelper;
 
 public class MainActivity extends AppCompatActivity {
@@ -23,19 +21,40 @@ public class MainActivity extends AppCompatActivity {
         IpcServerHelper.getInstance().addMsgCallback((pkgName, msg) -> {
             runOnUiThread(() -> msgTv.append(pkgName + "：\n" + msg + "\n"));
         });
-        IpcServerHelper.getInstance().init(this, true);
+        IpcServerHelper.getInstance().init(this, 10, true);
 
         msgTv = findViewById(R.id.msgTv);
         etSend = findViewById(R.id.etSend);
-        Button sendMsgBtn = findViewById(R.id.sendMsgBtn);
-        sendMsgBtn.setOnClickListener(view -> {
+        findViewById(R.id.sendMsgBtn).setOnClickListener(view -> {
             final String msg = etSend.getText().toString();
             // 向服务器发送消息
             if (TextUtils.isEmpty(msg)) {
                 return;
             }
             IpcServerHelper.getInstance().sendMsg(msg);
-            msgTv.append("服务端：\n" + msg + "\n");
+            msgTv.append("服务端ToAll：\n" + msg + "\n");
+            etSend.setText("");
+        });
+
+        findViewById(R.id.sendMsgOneBtn).setOnClickListener(view -> {
+            final String msg = etSend.getText().toString();
+            // 向服务器发送消息
+            if (TextUtils.isEmpty(msg)) {
+                return;
+            }
+            IpcServerHelper.getInstance().sendMsg("com.leo.socketclient", msg, true);
+            msgTv.append("服务端To①：\n" + msg + "\n");
+            etSend.setText("");
+        });
+
+        findViewById(R.id.sendMsgTwoBtn).setOnClickListener(view -> {
+            final String msg = etSend.getText().toString();
+            // 向服务器发送消息
+            if (TextUtils.isEmpty(msg)) {
+                return;
+            }
+            IpcServerHelper.getInstance().sendMsg("com.leo.socketclient2", msg, true);
+            msgTv.append("服务端To②：\n" + msg + "\n");
             etSend.setText("");
         });
     }
