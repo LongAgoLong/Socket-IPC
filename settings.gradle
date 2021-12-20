@@ -8,5 +8,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Socket-IPC"
 include ':app'
-include ':client'
+include ':client',':client2'
 include ':ipcsocket'

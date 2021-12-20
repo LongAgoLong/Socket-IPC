@@ -1,8 +1,12 @@
 package com.leo.ipcsocket.client;
 
+import android.app.Application;
 import android.content.Context;
+import android.os.Build;
 import android.os.SystemClock;
 import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
 
 import com.alibaba.fastjson.JSON;
 import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
@@ -17,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -69,11 +74,39 @@ public class IpcClientHelper {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
-        packageName = context.getPackageName();
+        packageName = getProcessName(context);
         isInit = true;
         isFinishing = false;
         LogUtils.openLog(isDebug);
         new Thread(this::connectSocketServer).start();
+    }
+
+    private String getProcessName(@NonNull Context context) {
+        String processName = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            processName = Application.getProcessName();
+            LogUtils.i(TAG, "getProcessName#Application: processName = " + processName);
+        } else {
+            // 通过反射ActivityThread获取进程名，避免了ipc
+            try {
+                final Method declaredMethod = Class.forName("android.app.ActivityThread",
+                        false, Application.class.getClassLoader())
+                        .getDeclaredMethod("currentProcessName", (Class<?>[]) new Class[0]);
+                declaredMethod.setAccessible(true);
+                final Object invoke = declaredMethod.invoke(null, new Object[0]);
+                if (invoke instanceof String) {
+                    processName = (String) invoke;
+                    LogUtils.i(TAG, "getProcessName#reflection: processName = " + processName);
+                }
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        }
+        if (TextUtils.isEmpty(processName)) {
+            processName = context.getPackageName();
+            LogUtils.i(TAG, "getProcessName#getPackageName: processName = " + processName);
+        }
+        return processName;
     }
 
     /**

@@ -1,4 +1,4 @@
-package com.leo.socketclient;
+package com.leo.socketclient2;
 
 import android.os.Bundle;
 import android.text.TextUtils;

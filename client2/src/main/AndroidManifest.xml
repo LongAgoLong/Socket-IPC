@@ -13,7 +13,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SocketIPC">
         <activity
-            android:name="com.leo.socketclient2.MainActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

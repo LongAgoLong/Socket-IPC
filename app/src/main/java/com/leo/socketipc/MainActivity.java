@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         IpcServerHelper.getInstance().addMsgCallback((pkgName, msg) -> {
-            runOnUiThread(() -> msgTv.append("客户端：\n" + msg + "\n"));
+            runOnUiThread(() -> msgTv.append(pkgName + "：\n" + msg + "\n"));
         });
         IpcServerHelper.getInstance().init(this, true);
 
