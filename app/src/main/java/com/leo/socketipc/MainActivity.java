@@ -8,6 +8,8 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.leo.ipcsocket.server.IpcServerHelper;
+import com.leo.ipcsocket.server.ServerConfig;
+import com.leo.ipcsocket.util.SocketParams;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,7 +23,12 @@ public class MainActivity extends AppCompatActivity {
         IpcServerHelper.getInstance().addMsgCallback((pkgName, msg) -> {
             runOnUiThread(() -> msgTv.append(pkgName + "：\n" + msg + "\n"));
         });
-        IpcServerHelper.getInstance().init(this, 10, true);
+        ServerConfig config = new ServerConfig.Builder()
+                .setMsgEffectiveSecond(10)
+                .setMaxCacheMsgCount(99)
+                .setPort(SocketParams.DEFAULT_PORT)
+                .build();
+        IpcServerHelper.getInstance().init(this, config, true);
 
         msgTv = findViewById(R.id.msgTv);
         etSend = findViewById(R.id.etSend);

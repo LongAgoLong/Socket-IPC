@@ -19,9 +19,17 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     private IpcSocketService.SocketBinder socketBinder;
 
     /**
-     * 消息有效期限
+     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
      */
     private volatile int msgEffectiveSecond;
+    /**
+     * 最大缓存消息数量
+     */
+    private volatile int maxCacheMsgCount;
+    /**
+     * 端口号
+     */
+    private volatile int port;
     /**
      * 消息接收监听
      */
@@ -45,15 +53,17 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
      * 初始化
      *
      * @param context
-     * @param msgEffectiveSecond 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
-     * @param isDebug            是否debug
+     * @param config  配置
+     * @param isDebug 是否debug
      */
-    public void init(Context context, int msgEffectiveSecond, boolean isDebug) {
+    public void init(Context context, ServerConfig config, boolean isDebug) {
         if (isConnected()) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
-        this.msgEffectiveSecond = msgEffectiveSecond;
+        this.maxCacheMsgCount = config.maxCacheMsgCount;
+        this.msgEffectiveSecond = config.msgEffectiveSecond;
+        this.port = config.port;
         LogUtils.openLog(isDebug);
         Intent intent = new Intent(context, IpcSocketService.class);
         context.bindService(intent, this, Context.BIND_AUTO_CREATE);
@@ -71,7 +81,9 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     }
 
     private boolean isConnected() {
-        return socketBinder != null;
+        boolean isConnected = socketBinder != null;
+        LogUtils.i(TAG, "isConnected = " + isConnected);
+        return isConnected;
     }
 
     /**
@@ -102,8 +114,10 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
         LogUtils.d(TAG, "onServiceConnected");
         socketBinder = (IpcSocketService.SocketBinder) iBinder;
-        socketBinder.getService().setMsgCallback(this);
-        socketBinder.getService().setMsgEffectiveSecond(msgEffectiveSecond);
+        IpcSocketService service = socketBinder.getService();
+        service.setMsgCallback(this);
+        service.setConfig(msgEffectiveSecond, maxCacheMsgCount, port);
+        service.startSocketServer();
     }
 
     @Override

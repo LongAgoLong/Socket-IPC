@@ -11,7 +11,6 @@ import androidx.collection.ArrayMap;
 
 import com.leo.ipcsocket.bean.CacheMsgEntity;
 import com.leo.ipcsocket.util.LogUtils;
-import com.leo.ipcsocket.util.SocketParams;
 import com.leo.ipcsocket.util.ThreadUtils;
 
 import java.io.IOException;
@@ -26,9 +25,17 @@ public class IpcSocketService extends Service implements IBinderCallback {
     private static final Object LOCK = new Object();
 
     /**
-     * 消息有效期限
+     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
      */
-    private volatile long msgEffectiveSecond = 10L;
+    public volatile int msgEffectiveSecond;
+    /**
+     * 最大缓存消息数量
+     */
+    public volatile int maxCacheMsgCount;
+    /**
+     * 端口号
+     */
+    public volatile int port;
     /**
      * 通过binder实现调用者client与Service之间的通信
      */
@@ -43,10 +50,10 @@ public class IpcSocketService extends Service implements IBinderCallback {
      * 缓存的消息
      */
     private final ArrayMap<String, ArrayList<CacheMsgEntity>> mCacheMsgMap = new ArrayMap<>();
+    private Thread serverThread;
 
     @Override
     public void onCreate() {
-        new Thread(new TcpServer()).start();
         super.onCreate();
     }
 
@@ -81,7 +88,8 @@ public class IpcSocketService extends Service implements IBinderCallback {
             ServerSocket serverSocket;
             try {
                 // 监听端口
-                serverSocket = new ServerSocket(SocketParams.PORT);
+                LogUtils.i(TAG, "创建 port = " + port);
+                serverSocket = new ServerSocket(port);
             } catch (IOException e) {
                 return;
             }
@@ -145,7 +153,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
 
                         }
                         CacheMsgEntity entity;
-                        if (list.size() > 30) {
+                        if (list.size() > maxCacheMsgCount) {
                             entity = list.remove(0);
                             LogUtils.w(TAG, "Remove invalidation message : " + entity.toString());
                             entity.creationTime = SystemClock.elapsedRealtime();
@@ -174,6 +182,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
             if (list == null || list.isEmpty()) {
                 return;
             }
+            LogUtils.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
             long realTime = SystemClock.elapsedRealtime();
             for (CacheMsgEntity msg : list) {
                 if (Math.abs(realTime - msg.creationTime) / 1000 > msgEffectiveSecond) {
@@ -212,6 +221,18 @@ public class IpcSocketService extends Service implements IBinderCallback {
     }
 
     /**
+     * 开启socket服务
+     */
+    public synchronized void startSocketServer() {
+        if (serverThread == null
+                || serverThread.isInterrupted()
+                || !serverThread.isAlive()) {
+            serverThread = new Thread(new TcpServer());
+            serverThread.start();
+        }
+    }
+
+    /**
      * 设置消息回调
      *
      * @param iServerMsgCallback
@@ -220,13 +241,10 @@ public class IpcSocketService extends Service implements IBinderCallback {
         this.iServerMsgCallback = iServerMsgCallback;
     }
 
-    /**
-     * 设置消息有效期限
-     *
-     * @param msgEffectiveSecond
-     */
-    public void setMsgEffectiveSecond(int msgEffectiveSecond) {
+    public void setConfig(int msgEffectiveSecond, int maxCacheMsgCount, int port) {
         this.msgEffectiveSecond = msgEffectiveSecond;
+        this.maxCacheMsgCount = maxCacheMsgCount;
+        this.port = port;
     }
 
     public class SocketBinder extends Binder {

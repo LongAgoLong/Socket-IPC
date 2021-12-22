@@ -25,7 +25,6 @@ import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Iterator;
 
 public class IpcClientHelper {
     private static final String TAG = "IpcClientHelper";
@@ -53,9 +52,17 @@ public class IpcClientHelper {
     private final ArrayList<IClientMsgCallback> mClientMsgCallbackList = new ArrayList<>();
     private volatile String packageName;
     /**
-     * 缓存消息有效时长
+     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
      */
     private volatile int msgEffectiveSecond;
+    /**
+     * 最大缓存消息数量
+     */
+    private volatile int maxCacheMsgCount;
+    /**
+     * 端口号
+     */
+    private volatile int port;
 
     private IpcClientHelper() {
     }
@@ -75,15 +82,17 @@ public class IpcClientHelper {
      * 初始化
      *
      * @param context
-     * @param msgEffectiveSecond 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
-     * @param isDebug            是否debug
+     * @param config  配置
+     * @param isDebug 是否debug
      */
-    public synchronized void init(Context context, int msgEffectiveSecond, boolean isDebug) {
+    public synchronized void init(Context context, ClientConfig config, boolean isDebug) {
         if (isInit) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
-        this.msgEffectiveSecond = msgEffectiveSecond;
+        this.maxCacheMsgCount = config.maxCacheMsgCount;
+        this.msgEffectiveSecond = config.msgEffectiveSecond;
+        this.port = config.port;
         packageName = getProcessName(context);
         isInit = true;
         isFinishing = false;
@@ -201,9 +210,12 @@ public class IpcClientHelper {
      */
     private void cacheMsg(String msg) {
         synchronized (LOCK) {
-            LogUtils.d(TAG, "cacheMsg: msg = " + msg);
+            LogUtils.d(TAG, "cacheMsg: maxCacheMsgCount = " + maxCacheMsgCount
+                    + " ; isInit = " + isInit
+                    + " ; msg = " + msg);
             CacheMsgEntity entity;
-            if (mCacheMsgList.size() > 30) {
+            int maxCount = isInit ? maxCacheMsgCount : SocketParams.DEFAULT_CACHE_MSG_COUNT;
+            if (mCacheMsgList.size() > maxCount) {
                 entity = mCacheMsgList.remove(0);
                 entity.creationTime = SystemClock.elapsedRealtime();
                 entity.msg = msg;
@@ -223,7 +235,8 @@ public class IpcClientHelper {
         while (socket == null) {
             try {
                 // 选择和服务器相同的端口
-                socket = new Socket("localhost", SocketParams.PORT);
+                LogUtils.i(TAG, "连接 port = " + port);
+                socket = new Socket("localhost", port);
                 mPrintWriter = new PrintWriter(new BufferedWriter(new
                         OutputStreamWriter(socket.getOutputStream())), true);
                 LogUtils.i(TAG, "socket服务连接成功");
@@ -240,15 +253,14 @@ public class IpcClientHelper {
         // 处理缓存消息
         synchronized (LOCK) {
             if (!mCacheMsgList.isEmpty()) {
+                LogUtils.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
                 long realTime = SystemClock.elapsedRealtime();
-                Iterator<CacheMsgEntity> iterator = mCacheMsgList.iterator();
-                while (iterator.hasNext()) {
-                    CacheMsgEntity s = iterator.next();
-                    if (Math.abs(realTime - s.creationTime) / 1000 <= msgEffectiveSecond) {
-                        mPrintWriter.println(s.msg);
+                for (CacheMsgEntity cacheMsgEntity : mCacheMsgList) {
+                    if (Math.abs(realTime - cacheMsgEntity.creationTime) / 1000 <= msgEffectiveSecond) {
+                        mPrintWriter.println(cacheMsgEntity.msg);
                     }
-                    iterator.remove();
                 }
+                mCacheMsgList.clear();
             }
         }
         try {

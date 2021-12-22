@@ -8,7 +8,9 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.leo.ipcsocket.client.ClientConfig;
 import com.leo.ipcsocket.client.IpcClientHelper;
+import com.leo.ipcsocket.util.SocketParams;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,7 +25,12 @@ public class MainActivity extends AppCompatActivity {
         Button bindSocketBtn = findViewById(R.id.bindSocketBtn);
         bindSocketBtn.setOnClickListener(view -> {
             IpcClientHelper.getInstance().addMsgCallback(msg -> runOnUiThread(() -> msgTv.append("服务端：\n" + msg + "\n")));
-            IpcClientHelper.getInstance().init(MainActivity.this, 10, true);
+            ClientConfig config = new ClientConfig.Builder()
+                    .setMsgEffectiveSecond(10)
+                    .setMaxCacheMsgCount(99)
+                    .setPort(SocketParams.DEFAULT_PORT)
+                    .build();
+            IpcClientHelper.getInstance().init(MainActivity.this, config, true);
         });
 
         Button sendMsgBtn = findViewById(R.id.sendMsgBtn);
