@@ -17,19 +17,7 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     private static IpcServerHelper mInstance;
 
     private IpcSocketService.SocketBinder socketBinder;
-
-    /**
-     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
-     */
-    private volatile int msgEffectiveSecond;
-    /**
-     * 最大缓存消息数量
-     */
-    private volatile int maxCacheMsgCount;
-    /**
-     * 端口号
-     */
-    private volatile int port;
+    private ServerConfig config;
     /**
      * 消息接收监听
      */
@@ -56,14 +44,12 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
      * @param config  配置
      * @param isDebug 是否debug
      */
-    public void init(Context context, ServerConfig config, boolean isDebug) {
+    public void init(Context context, @NonNull ServerConfig config, boolean isDebug) {
         if (isConnected()) {
             LogUtils.e(TAG, "Already initialized.");
             return;
         }
-        this.maxCacheMsgCount = config.maxCacheMsgCount;
-        this.msgEffectiveSecond = config.msgEffectiveSecond;
-        this.port = config.port;
+        this.config = config;
         LogUtils.openLog(isDebug);
         Intent intent = new Intent(context, IpcSocketService.class);
         context.bindService(intent, this, Context.BIND_AUTO_CREATE);
@@ -116,7 +102,7 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
         socketBinder = (IpcSocketService.SocketBinder) iBinder;
         IpcSocketService service = socketBinder.getService();
         service.setMsgCallback(this);
-        service.setConfig(msgEffectiveSecond, maxCacheMsgCount, port);
+        service.setConfig(config);
         service.startSocketServer();
     }
 

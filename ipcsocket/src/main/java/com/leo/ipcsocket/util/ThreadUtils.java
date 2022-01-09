@@ -17,7 +17,7 @@ public class ThreadUtils {
                 new ThreadPoolExecutor.DiscardOldestPolicy());
     }
 
-    public static ThreadUtils getInstance() {
+    private static ThreadUtils getInstance() {
         if (mInstance == null) {
             synchronized (ThreadUtils.class) {
                 if (mInstance == null) {
@@ -28,7 +28,7 @@ public class ThreadUtils {
         return mInstance;
     }
 
-    public ExecutorService getExecutorService() {
-        return executorService;
+    public static ExecutorService getExecutorService() {
+        return getInstance().executorService;
     }
 }

@@ -7,6 +7,7 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.text.TextUtils;
 
+import androidx.annotation.NonNull;
 import androidx.collection.ArrayMap;
 
 import com.leo.ipcsocket.bean.CacheMsgEntity;
@@ -123,7 +124,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
         if (TextUtils.isEmpty(msg)) {
             return;
         }
-        ThreadUtils.getInstance().getExecutorService().execute(() -> {
+        ThreadUtils.getExecutorService().execute(() -> {
             Collection<IpcSocketInstance> socketInstanceCollection = ipcSocketInstancesMap.values();
             for (IpcSocketInstance ipcSocketInstance : socketInstanceCollection) {
                 ipcSocketInstance.send(msg);
@@ -142,7 +143,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
         if (TextUtils.isEmpty(msg)) {
             return;
         }
-        ThreadUtils.getInstance().getExecutorService().execute(() -> {
+        ThreadUtils.getExecutorService().execute(() -> {
             IpcSocketInstance ipcSocketInstance = ipcSocketInstancesMap.get(pkgName);
             if (ipcSocketInstance == null) {
                 if (isMustBeServed && msgEffectiveSecond > 0) {
@@ -188,7 +189,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
                 if (Math.abs(realTime - msg.creationTime) / 1000 > msgEffectiveSecond) {
                     continue;
                 }
-                ThreadUtils.getInstance().getExecutorService().execute(() -> {
+                ThreadUtils.getExecutorService().execute(() -> {
                     IpcSocketInstance ipcSocketInstance = ipcSocketInstancesMap.get(pkgName);
                     if (ipcSocketInstance != null) {
                         ipcSocketInstance.send(msg.msg);
@@ -212,7 +213,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
             sendMsg(msg);
             return;
         }
-        ThreadUtils.getInstance().getExecutorService().execute(() -> {
+        ThreadUtils.getExecutorService().execute(() -> {
             IpcSocketInstance ipcSocketInstance = ipcSocketInstancesMap.get(pkg);
             if (ipcSocketInstance != null) {
                 ipcSocketInstance.send(msg);
@@ -241,10 +242,10 @@ public class IpcSocketService extends Service implements IBinderCallback {
         this.iServerMsgCallback = iServerMsgCallback;
     }
 
-    public void setConfig(int msgEffectiveSecond, int maxCacheMsgCount, int port) {
-        this.msgEffectiveSecond = msgEffectiveSecond;
-        this.maxCacheMsgCount = maxCacheMsgCount;
-        this.port = port;
+    public void setConfig(@NonNull ServerConfig config) {
+        this.msgEffectiveSecond = config.msgEffectiveSecond;
+        this.maxCacheMsgCount = config.maxCacheMsgCount;
+        this.port = config.port;
     }
 
     public class SocketBinder extends Binder {

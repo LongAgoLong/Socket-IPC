@@ -193,7 +193,7 @@ public class IpcClientHelper {
                 cacheMsg(msg);
             }
         } else {
-            ThreadUtils.getInstance().getExecutorService().execute(() -> {
+            ThreadUtils.getExecutorService().execute(() -> {
                 if (isConnected()) {
                     mPrintWriter.println(msg);
                 } else if (isMustBeServed) {
@@ -277,7 +277,7 @@ public class IpcClientHelper {
                 }
             }
             IOUtils.close(mPrintWriter, br, socket);
-        } catch (IOException e) {
+        } catch (Exception | Error e) {
             e.printStackTrace();
         }
         // 重新绑定

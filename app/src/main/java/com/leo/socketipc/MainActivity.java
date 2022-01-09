@@ -7,11 +7,12 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.leo.ipcsocket.server.IServerMsgCallback;
 import com.leo.ipcsocket.server.IpcServerHelper;
 import com.leo.ipcsocket.server.ServerConfig;
 import com.leo.ipcsocket.util.SocketParams;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements IServerMsgCallback {
 
     private EditText etSend;
     private TextView msgTv;
@@ -20,9 +21,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        IpcServerHelper.getInstance().addMsgCallback((pkgName, msg) -> {
-            runOnUiThread(() -> msgTv.append(pkgName + "：\n" + msg + "\n"));
-        });
+        IpcServerHelper.getInstance().addMsgCallback(this);
         ServerConfig config = new ServerConfig.Builder()
                 .setMsgEffectiveSecond(10)
                 .setMaxCacheMsgCount(99)
@@ -53,22 +52,21 @@ public class MainActivity extends AppCompatActivity {
             msgTv.append("服务端To①：\n" + msg + "\n");
             etSend.setText("");
         });
-
-        findViewById(R.id.sendMsgTwoBtn).setOnClickListener(view -> {
-            final String msg = etSend.getText().toString();
-            // 向服务器发送消息
-            if (TextUtils.isEmpty(msg)) {
-                return;
-            }
-            IpcServerHelper.getInstance().sendMsg("com.leo.socketclient2", msg, true);
-            msgTv.append("服务端To②：\n" + msg + "\n");
-            etSend.setText("");
-        });
     }
 
     @Override
     protected void onDestroy() {
+        IpcServerHelper.getInstance().removeMsgCallback(this);
         IpcServerHelper.getInstance().finish(this);
         super.onDestroy();
+    }
+
+    @Override
+    public void onReceive(String pkgName, String msg) {
+        runOnUiThread(() -> {
+            if (msgTv != null) {
+                msgTv.append(pkgName + "：\n" + msg + "\n");
+            }
+        });
     }
 }

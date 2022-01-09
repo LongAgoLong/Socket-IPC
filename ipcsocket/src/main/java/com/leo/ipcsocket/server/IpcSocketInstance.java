@@ -124,7 +124,7 @@ public class IpcSocketInstance {
             Log.e(TAG, "outWriter is null.");
             return;
         }
-        ThreadUtils.getInstance().getExecutorService().execute(() -> {
+        ThreadUtils.getExecutorService().execute(() -> {
             if (writer != null) {
                 writer.println(msg);
             }
