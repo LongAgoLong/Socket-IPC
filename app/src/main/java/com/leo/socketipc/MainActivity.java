@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements IServerMsgCallbac
         etSend = findViewById(R.id.etSend);
         findViewById(R.id.sendMsgBtn).setOnClickListener(view -> {
             final String msg = etSend.getText().toString();
-            // 向服务器发送消息
+            // 向所有应用发送消息
             if (TextUtils.isEmpty(msg)) {
                 return;
             }
@@ -44,7 +44,7 @@ public class MainActivity extends AppCompatActivity implements IServerMsgCallbac
 
         findViewById(R.id.sendMsgOneBtn).setOnClickListener(view -> {
             final String msg = etSend.getText().toString();
-            // 向服务器发送消息
+            // 向指定应用发送消息
             if (TextUtils.isEmpty(msg)) {
                 return;
             }

@@ -12,7 +12,9 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/client" />
-            <option value="$PROJECT_DIR$/ipcsocket" />
+            <option value="$PROJECT_DIR$/ipcsocket_client" />
+            <option value="$PROJECT_DIR$/ipcsocket_common" />
+            <option value="$PROJECT_DIR$/ipcsocket_server" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />
