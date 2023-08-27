@@ -9,10 +9,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.leo.ipcsocket.client.ClientConfig;
 import com.leo.ipcsocket.client.IClientMsgCallback;
+import com.leo.ipcsocket.client.IConnectChangeCallback;
 import com.leo.ipcsocket.client.IpcClientHelper;
+import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.SocketParams;
 
-public class MainActivity extends AppCompatActivity implements IClientMsgCallback {
+public class MainActivity extends AppCompatActivity implements IClientMsgCallback, IConnectChangeCallback {
 
     private static final String TAG = "client";
     private TextView msgTv;
@@ -29,7 +31,8 @@ public class MainActivity extends AppCompatActivity implements IClientMsgCallbac
                     .setMaxCacheMsgCount(99)
                     .setPort(SocketParams.DEFAULT_PORT)
                     .build();
-            IpcClientHelper.getInstance().init(MainActivity.this, config, true);
+            IpcClientHelper.getInstance().init(MainActivity.this, config,
+                    MainActivity.this, true);
         });
 
         findViewById(R.id.sendMsgBtn).setOnClickListener(view -> {
@@ -58,6 +61,15 @@ public class MainActivity extends AppCompatActivity implements IClientMsgCallbac
         runOnUiThread(() -> {
             if (msgTv != null) {
                 msgTv.append("服务端：\n" + msg + "\n");
+            }
+        });
+    }
+
+    @Override
+    public void onConnectChangeCallback(boolean isConnect) {
+        runOnUiThread(() -> {
+            if (msgTv != null) {
+                msgTv.append("连接状态：" + isConnect);
             }
         });
     }

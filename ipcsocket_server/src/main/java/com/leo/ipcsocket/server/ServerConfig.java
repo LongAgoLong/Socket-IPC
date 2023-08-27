@@ -1,8 +1,11 @@
 package com.leo.ipcsocket.server;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.leo.ipcsocket.util.SocketParams;
 
-public class ServerConfig {
+public class ServerConfig implements Parcelable {
     /**
      * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
      */
@@ -47,4 +50,40 @@ public class ServerConfig {
             return config;
         }
     }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(this.msgEffectiveSecond);
+        dest.writeInt(this.maxCacheMsgCount);
+        dest.writeInt(this.port);
+    }
+
+    public void readFromParcel(Parcel source) {
+        this.msgEffectiveSecond = source.readInt();
+        this.maxCacheMsgCount = source.readInt();
+        this.port = source.readInt();
+    }
+
+    protected ServerConfig(Parcel in) {
+        this.msgEffectiveSecond = in.readInt();
+        this.maxCacheMsgCount = in.readInt();
+        this.port = in.readInt();
+    }
+
+    public static final Parcelable.Creator<ServerConfig> CREATOR = new Parcelable.Creator<ServerConfig>() {
+        @Override
+        public ServerConfig createFromParcel(Parcel source) {
+            return new ServerConfig(source);
+        }
+
+        @Override
+        public ServerConfig[] newArray(int size) {
+            return new ServerConfig[size];
+        }
+    };
 }

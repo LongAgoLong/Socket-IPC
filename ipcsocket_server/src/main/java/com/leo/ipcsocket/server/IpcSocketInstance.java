@@ -7,7 +7,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
-import com.leo.ipcsocket.util.LogUtils;
+import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.ThreadUtils;
 
 import java.io.BufferedReader;
@@ -28,7 +28,7 @@ public class IpcSocketInstance {
 
     public IpcSocketInstance(Socket client, IBinderCallback iBinderCallback) {
         this.mBinderCallback = iBinderCallback;
-        new Thread() {
+        Thread thread = new Thread() {
             @Override
             public void run() {
                 try {
@@ -37,7 +37,9 @@ public class IpcSocketInstance {
                     e.printStackTrace();
                 }
             }
-        }.start();
+        };
+        thread.setPriority(Thread.MAX_PRIORITY);
+        thread.start();
     }
 
     public void finish() {
@@ -61,7 +63,7 @@ public class IpcSocketInstance {
         while (!mIsServiceDestroyed) {
             try {
                 String msg = reader.readLine();
-                LogUtils.i(TAG, "receiver: msg = " + msg);
+                IpcLog.i(TAG, "receiver: msg = " + msg);
                 if (msg == null) {
                     break;
                 }
@@ -74,7 +76,7 @@ public class IpcSocketInstance {
                             this.pkgName = pkgName;
                             mBinderCallback.onRegister(pkgName, IpcSocketInstance.this);
                         } else {
-                            LogUtils.e(TAG, "pkgName is null or empty.");
+                            IpcLog.e(TAG, "pkgName is null or empty.");
                         }
                     }
                 }

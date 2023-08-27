@@ -8,10 +8,9 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
-import androidx.collection.ArrayMap;
 
 import com.leo.ipcsocket.bean.CacheMsgEntity;
-import com.leo.ipcsocket.util.LogUtils;
+import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.ThreadUtils;
 
 import java.io.IOException;
@@ -19,24 +18,13 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class IpcSocketService extends Service implements IBinderCallback {
     private boolean isServiceDestroyed = false;
     private static final String TAG = "IpcSocketService";
     private static final Object LOCK = new Object();
-
-    /**
-     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
-     */
-    public volatile int msgEffectiveSecond;
-    /**
-     * 最大缓存消息数量
-     */
-    public volatile int maxCacheMsgCount;
-    /**
-     * 端口号
-     */
-    public volatile int port;
+    private volatile ServerConfig mServerConfig;
     /**
      * 通过binder实现调用者client与Service之间的通信
      */
@@ -46,11 +34,13 @@ public class IpcSocketService extends Service implements IBinderCallback {
     /**
      * 存放实例
      */
-    private final ArrayMap<String, IpcSocketInstance> ipcSocketInstancesMap = new ArrayMap<>();
+    private final ConcurrentHashMap<String, IpcSocketInstance> ipcSocketInstancesMap
+            = new ConcurrentHashMap<>();
     /**
      * 缓存的消息
      */
-    private final ArrayMap<String, ArrayList<CacheMsgEntity>> mCacheMsgMap = new ArrayMap<>();
+    private final ConcurrentHashMap<String, ArrayList<CacheMsgEntity>> mCacheMsgMap
+            = new ConcurrentHashMap<>();
     private Thread serverThread;
 
     @Override
@@ -65,14 +55,14 @@ public class IpcSocketService extends Service implements IBinderCallback {
 
     @Override
     public void onRegister(String pkg, IpcSocketInstance ipcSocketInstance) {
-        LogUtils.i(TAG, "onRegister: pkg = " + pkg);
+        IpcLog.i(TAG, "onRegister: pkg = " + pkg);
         ipcSocketInstancesMap.put(pkg, ipcSocketInstance);
         sendCacheMsg(pkg);
     }
 
     @Override
     public void onUnregister(String pkg) {
-        LogUtils.i(TAG, "onUnregister: pkg = " + pkg);
+        IpcLog.i(TAG, "onUnregister: pkg = " + pkg);
         ipcSocketInstancesMap.remove(pkg);
     }
 
@@ -84,12 +74,19 @@ public class IpcSocketService extends Service implements IBinderCallback {
     }
 
     private class TcpServer implements Runnable {
+
+        int port;
+
+        public TcpServer(int port) {
+            this.port = port;
+        }
+
         @Override
         public void run() {
             ServerSocket serverSocket;
             try {
                 // 监听端口
-                LogUtils.i(TAG, "创建 port = " + port);
+                IpcLog.i(TAG, "创建 port = " + port);
                 serverSocket = new ServerSocket(port);
             } catch (IOException e) {
                 return;
@@ -146,6 +143,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
         ThreadUtils.getExecutorService().execute(() -> {
             IpcSocketInstance ipcSocketInstance = ipcSocketInstancesMap.get(pkgName);
             if (ipcSocketInstance == null) {
+                int msgEffectiveSecond = getMsgEffectiveSecond();
                 if (isMustBeServed && msgEffectiveSecond > 0) {
                     synchronized (LOCK) {
                         ArrayList<CacheMsgEntity> list = mCacheMsgMap.get(pkgName);
@@ -154,9 +152,9 @@ public class IpcSocketService extends Service implements IBinderCallback {
 
                         }
                         CacheMsgEntity entity;
-                        if (list.size() > maxCacheMsgCount) {
+                        if (list.size() > getMaxCacheMsgCount()) {
                             entity = list.remove(0);
-                            LogUtils.w(TAG, "Remove invalidation message : " + entity.toString());
+                            IpcLog.w(TAG, "Remove invalidation message : " + entity.toString());
                             entity.creationTime = SystemClock.elapsedRealtime();
                             entity.msg = msg;
                         } else {
@@ -183,7 +181,8 @@ public class IpcSocketService extends Service implements IBinderCallback {
             if (list == null || list.isEmpty()) {
                 return;
             }
-            LogUtils.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
+            int msgEffectiveSecond = getMsgEffectiveSecond();
+            IpcLog.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
             long realTime = SystemClock.elapsedRealtime();
             for (CacheMsgEntity msg : list) {
                 if (Math.abs(realTime - msg.creationTime) / 1000 > msgEffectiveSecond) {
@@ -228,7 +227,12 @@ public class IpcSocketService extends Service implements IBinderCallback {
         if (serverThread == null
                 || serverThread.isInterrupted()
                 || !serverThread.isAlive()) {
-            serverThread = new Thread(new TcpServer());
+            if (mServerConfig == null) {
+                IpcLog.e(TAG, "startSocketServer: mServerConfig is null!!!");
+                return;
+            }
+            serverThread = new Thread(new TcpServer(mServerConfig.port));
+            serverThread.setPriority(Thread.MAX_PRIORITY);
             serverThread.start();
         }
     }
@@ -243,9 +247,7 @@ public class IpcSocketService extends Service implements IBinderCallback {
     }
 
     public void setConfig(@NonNull ServerConfig config) {
-        this.msgEffectiveSecond = config.msgEffectiveSecond;
-        this.maxCacheMsgCount = config.maxCacheMsgCount;
-        this.port = config.port;
+        this.mServerConfig = config;
     }
 
     public class SocketBinder extends Binder {
@@ -253,5 +255,13 @@ public class IpcSocketService extends Service implements IBinderCallback {
         public IpcSocketService getService() {
             return IpcSocketService.this;
         }
+    }
+
+    private int getMsgEffectiveSecond() {
+        return mServerConfig != null ? mServerConfig.msgEffectiveSecond : 0;
+    }
+
+    private int getMaxCacheMsgCount() {
+        return mServerConfig != null ? mServerConfig.maxCacheMsgCount : 0;
     }
 }

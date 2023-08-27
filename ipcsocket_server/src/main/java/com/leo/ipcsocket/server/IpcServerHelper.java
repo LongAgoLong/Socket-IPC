@@ -8,16 +8,16 @@ import android.os.IBinder;
 
 import androidx.annotation.NonNull;
 
-import com.leo.ipcsocket.util.LogUtils;
+import com.leo.ipcsocket.util.IpcLog;
 
 import java.util.ArrayList;
 
 public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
     private static final String TAG = "IpcServerHelper";
-    private static IpcServerHelper mInstance;
+    private static volatile IpcServerHelper mInstance;
 
     private IpcSocketService.SocketBinder socketBinder;
-    private ServerConfig config;
+    private volatile ServerConfig mServerConfig;
     /**
      * 消息接收监听
      */
@@ -46,11 +46,11 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
      */
     public void init(Context context, @NonNull ServerConfig config, boolean isDebug) {
         if (isConnected()) {
-            LogUtils.e(TAG, "Already initialized.");
+            IpcLog.e(TAG, "Already initialized.");
             return;
         }
-        this.config = config;
-        LogUtils.openLog(isDebug);
+        this.mServerConfig = config;
+        IpcLog.openLog(isDebug);
         Intent intent = new Intent(context, IpcSocketService.class);
         context.bindService(intent, this, Context.BIND_AUTO_CREATE);
     }
@@ -61,14 +61,14 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
      * @param context
      */
     public void finish(Context context) {
-        LogUtils.d(TAG, "finish");
+        IpcLog.d(TAG, "finish");
         context.unbindService(this);
         context.stopService(new Intent(context, IpcSocketService.class));
     }
 
     private boolean isConnected() {
         boolean isConnected = socketBinder != null;
-        LogUtils.i(TAG, "isConnected = " + isConnected);
+        IpcLog.i(TAG, "isConnected = " + isConnected);
         return isConnected;
     }
 
@@ -98,17 +98,17 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
 
     @Override
     public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-        LogUtils.d(TAG, "onServiceConnected");
+        IpcLog.d(TAG, "onServiceConnected");
         socketBinder = (IpcSocketService.SocketBinder) iBinder;
         IpcSocketService service = socketBinder.getService();
         service.setMsgCallback(this);
-        service.setConfig(config);
+        service.setConfig(mServerConfig);
         service.startSocketServer();
     }
 
     @Override
     public void onServiceDisconnected(ComponentName componentName) {
-        LogUtils.d(TAG, "onServiceDisconnected");
+        IpcLog.d(TAG, "onServiceDisconnected");
         socketBinder = null;
     }
 
@@ -126,6 +126,7 @@ public class IpcServerHelper implements ServiceConnection, IServerMsgCallback {
 
     @Override
     public void onReceive(String pkgName, String msg) {
+        IpcLog.d(TAG, "onReceive: pkgName = " + pkgName + ", msg = " + msg);
         for (IServerMsgCallback iServerMsgCallback : iServerMsgCallbackList) {
             iServerMsgCallback.onReceive(pkgName, msg);
         }

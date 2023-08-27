@@ -2,7 +2,7 @@ package com.leo.ipcsocket.util;
 
 import android.util.Log;
 
-public class LogUtils {
+public class IpcLog {
     private static final String TAG_ = "IPCSocket-";
     private static int type = Log.VERBOSE;
 

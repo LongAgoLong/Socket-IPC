@@ -7,10 +7,10 @@ public class RegisterPkgProtocol extends BaseProtocol {
     public static final String NAME = "RegisterPkg";
 
     public RegisterPkgProtocol(String pkgName) {
-        this.nameSpace = "com.socket.ipc.communication_link.info";
-        this.name = "RegisterPkg";
+        setNameSpace("com.socket.ipc.communication_link.info");
+        setName("RegisterPkg");
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("pkgName", pkgName);
-        this.data = jsonObject.toJSONString();
+        setData(jsonObject.toJSONString());
     }
 }

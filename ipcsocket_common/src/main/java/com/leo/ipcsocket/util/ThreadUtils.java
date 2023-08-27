@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadUtils {
-    private static ThreadUtils mInstance;
+    private static volatile ThreadUtils mInstance;
     private final ExecutorService executorService;
 
     private ThreadUtils() {

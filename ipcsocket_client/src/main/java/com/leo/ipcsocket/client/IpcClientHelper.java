@@ -12,7 +12,7 @@ import com.alibaba.fastjson.JSON;
 import com.leo.ipcsocket.bean.CacheMsgEntity;
 import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
-import com.leo.ipcsocket.util.LogUtils;
+import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.SocketParams;
 import com.leo.ipcsocket.util.ThreadUtils;
 
@@ -28,8 +28,9 @@ import java.util.ArrayList;
 
 public class IpcClientHelper {
     private static final String TAG = "IpcClientHelper";
-    private static IpcClientHelper mInstance;
+    private static volatile IpcClientHelper mInstance;
     private static final Object LOCK = new Object();
+    private volatile IConnectChangeCallback mConnectChangeCallback;
     /**
      * 缓存的消息
      */
@@ -51,18 +52,7 @@ public class IpcClientHelper {
      */
     private final ArrayList<IClientMsgCallback> mClientMsgCallbackList = new ArrayList<>();
     private volatile String packageName;
-    /**
-     * 消息有效时长，发送指定包名信息时生效，如遇应用未绑定，会加入缓存
-     */
-    private volatile int msgEffectiveSecond;
-    /**
-     * 最大缓存消息数量
-     */
-    private volatile int maxCacheMsgCount;
-    /**
-     * 端口号
-     */
-    private volatile int port;
+    private volatile ClientConfig mClientConfig;
 
     private IpcClientHelper() {
     }
@@ -85,37 +75,39 @@ public class IpcClientHelper {
      * @param config  配置
      * @param isDebug 是否debug
      */
-    public synchronized void init(Context context, ClientConfig config, boolean isDebug) {
+    public synchronized void init(Context context, ClientConfig config,
+                                  IConnectChangeCallback connectChangeCallback, boolean isDebug) {
         if (isInit) {
-            LogUtils.e(TAG, "Already initialized.");
+            IpcLog.e(TAG, "Already initialized.");
             return;
         }
-        this.maxCacheMsgCount = config.maxCacheMsgCount;
-        this.msgEffectiveSecond = config.msgEffectiveSecond;
-        this.port = config.port;
+        this.mClientConfig = config;
+        this.mConnectChangeCallback = connectChangeCallback;
         packageName = getProcessName(context);
         isInit = true;
         isFinishing = false;
-        LogUtils.openLog(isDebug);
-        new Thread(this::connectSocketServer).start();
+        IpcLog.openLog(isDebug);
+        Thread thread = new Thread(this::connectSocketServer);
+        thread.setPriority(Thread.MAX_PRIORITY);
+        thread.start();
     }
 
     private String getProcessName(@NonNull Context context) {
         String processName = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             processName = Application.getProcessName();
-            LogUtils.i(TAG, "getProcessName#Application: processName = " + processName);
+            IpcLog.i(TAG, "getProcessName#Application: processName = " + processName);
         } else {
             // 通过反射ActivityThread获取进程名，避免了ipc
             try {
                 final Method declaredMethod = Class.forName("android.app.ActivityThread",
-                        false, Application.class.getClassLoader())
+                                false, Application.class.getClassLoader())
                         .getDeclaredMethod("currentProcessName", (Class<?>[]) new Class[0]);
                 declaredMethod.setAccessible(true);
                 final Object invoke = declaredMethod.invoke(null, new Object[0]);
                 if (invoke instanceof String) {
                     processName = (String) invoke;
-                    LogUtils.i(TAG, "getProcessName#reflection: processName = " + processName);
+                    IpcLog.i(TAG, "getProcessName#reflection: processName = " + processName);
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -123,7 +115,7 @@ public class IpcClientHelper {
         }
         if (TextUtils.isEmpty(processName)) {
             processName = context.getPackageName();
-            LogUtils.i(TAG, "getProcessName#getPackageName: processName = " + processName);
+            IpcLog.i(TAG, "getProcessName#getPackageName: processName = " + processName);
         }
         return processName;
     }
@@ -210,7 +202,8 @@ public class IpcClientHelper {
      */
     private void cacheMsg(String msg) {
         synchronized (LOCK) {
-            LogUtils.d(TAG, "cacheMsg: maxCacheMsgCount = " + maxCacheMsgCount
+            int maxCacheMsgCount = getMaxCacheMsgCount();
+            IpcLog.d(TAG, "cacheMsg: maxCacheMsgCount = " + maxCacheMsgCount
                     + " ; isInit = " + isInit
                     + " ; msg = " + msg);
             CacheMsgEntity entity;
@@ -230,30 +223,38 @@ public class IpcClientHelper {
      * 连接TCP服务器
      */
     private void connectSocketServer() {
+        if (mClientConfig == null) {
+            IpcLog.e(TAG, "connectSocketServer: mClientConfig is null!!!");
+            return;
+        }
         int counter = 0;
         Socket socket = null;
         while (socket == null) {
             try {
                 // 选择和服务器相同的端口
-                LogUtils.i(TAG, "连接 port = " + port);
-                socket = new Socket("localhost", port);
+                IpcLog.i(TAG, "连接 port = " + mClientConfig.port);
+                socket = new Socket("localhost", mClientConfig.port);
                 mPrintWriter = new PrintWriter(new BufferedWriter(new
                         OutputStreamWriter(socket.getOutputStream())), true);
-                LogUtils.i(TAG, "socket服务连接成功");
+                IpcLog.i(TAG, "socket服务连接成功");
             } catch (IOException e) {
-                LogUtils.e(TAG, "socket连接TCP服务失败, 重试...");
+                IpcLog.e(TAG, "socket连接TCP服务失败, 重试...");
                 SystemClock.sleep(1000L * (Math.min(counter++, 10)));
             }
         }
         // 发送注册pkg消息
         RegisterPkgProtocol registerPkgProtocol = new RegisterPkgProtocol(this.packageName);
         String info = JSON.toJSONString(registerPkgProtocol);
-        LogUtils.i(TAG, "register: info = " + info);
+        IpcLog.i(TAG, "register: info = " + info);
         mPrintWriter.println(info);
+        if (mConnectChangeCallback != null) {
+            mConnectChangeCallback.onConnectChangeCallback(true);
+        }
         // 处理缓存消息
         synchronized (LOCK) {
             if (!mCacheMsgList.isEmpty()) {
-                LogUtils.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
+                int msgEffectiveSecond = getMsgEffectiveSecond();
+                IpcLog.i(TAG, "msgEffectiveSecond = " + msgEffectiveSecond);
                 long realTime = SystemClock.elapsedRealtime();
                 for (CacheMsgEntity cacheMsgEntity : mCacheMsgList) {
                     if (Math.abs(realTime - cacheMsgEntity.creationTime) / 1000 <= msgEffectiveSecond) {
@@ -268,7 +269,7 @@ public class IpcClientHelper {
             BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             while (!isFinishing) {
                 final String msg = br.readLine();
-                LogUtils.d(TAG, "receiver: msg = " + msg);
+                IpcLog.d(TAG, "receiver: msg = " + msg);
                 if (msg == null) {
                     break;
                 }
@@ -280,7 +281,20 @@ public class IpcClientHelper {
         } catch (Exception | Error e) {
             e.printStackTrace();
         }
-        // 重新绑定
-        connectSocketServer();
+        if (mConnectChangeCallback != null) {
+            mConnectChangeCallback.onConnectChangeCallback(false);
+        }
+        // 非主动中断，需要重新绑定
+        if (!isFinishing) {
+            connectSocketServer();
+        }
+    }
+
+    private int getMsgEffectiveSecond() {
+        return mClientConfig != null ? mClientConfig.msgEffectiveSecond : 0;
+    }
+
+    private int getMaxCacheMsgCount() {
+        return mClientConfig != null ? mClientConfig.maxCacheMsgCount : 0;
     }
 }
