@@ -7,11 +7,10 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.leo.ipcsocket.client.ClientConfig;
-import com.leo.ipcsocket.client.IClientMsgCallback;
-import com.leo.ipcsocket.client.IConnectChangeCallback;
+import com.leo.ipcsocket.client.entity.ClientConfig;
+import com.leo.ipcsocket.client.callback.IClientMsgCallback;
+import com.leo.ipcsocket.client.callback.IConnectChangeCallback;
 import com.leo.ipcsocket.client.IpcClientHelper;
-import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.SocketParams;
 
 public class MainActivity extends AppCompatActivity implements IClientMsgCallback, IConnectChangeCallback {
@@ -69,7 +68,7 @@ public class MainActivity extends AppCompatActivity implements IClientMsgCallbac
     public void onConnectChangeCallback(boolean isConnect) {
         runOnUiThread(() -> {
             if (msgTv != null) {
-                msgTv.append("连接状态：" + isConnect);
+                msgTv.append("连接状态：" + isConnect+ "\n");
             }
         });
     }

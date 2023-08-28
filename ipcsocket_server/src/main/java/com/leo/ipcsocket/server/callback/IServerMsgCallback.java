@@ -1,4 +1,4 @@
-package com.leo.ipcsocket.server;
+package com.leo.ipcsocket.server.callback;
 
 public interface IServerMsgCallback {
 

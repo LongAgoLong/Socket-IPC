@@ -10,6 +10,9 @@ import androidx.annotation.NonNull;
 
 import com.alibaba.fastjson.JSON;
 import com.leo.ipcsocket.bean.CacheMsgEntity;
+import com.leo.ipcsocket.client.callback.IClientMsgCallback;
+import com.leo.ipcsocket.client.callback.IConnectChangeCallback;
+import com.leo.ipcsocket.client.entity.ClientConfig;
 import com.leo.ipcsocket.protocol.RegisterPkgProtocol;
 import com.leo.ipcsocket.util.IOUtils;
 import com.leo.ipcsocket.util.IpcLog;
@@ -239,7 +242,9 @@ public class IpcClientHelper {
                 IpcLog.i(TAG, "socket服务连接成功");
             } catch (IOException e) {
                 IpcLog.e(TAG, "socket连接TCP服务失败, 重试...");
-                SystemClock.sleep(1000L * (Math.min(counter++, 10)));
+                counter++;
+                counter = Math.min(counter, 10);
+                SystemClock.sleep(1000L * counter);
             }
         }
         // 发送注册pkg消息

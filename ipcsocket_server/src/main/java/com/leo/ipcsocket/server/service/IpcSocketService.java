@@ -1,4 +1,4 @@
-package com.leo.ipcsocket.server;
+package com.leo.ipcsocket.server.service;
 
 import android.app.Service;
 import android.content.Intent;
@@ -10,6 +10,9 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 
 import com.leo.ipcsocket.bean.CacheMsgEntity;
+import com.leo.ipcsocket.server.callback.IBinderCallback;
+import com.leo.ipcsocket.server.callback.IServerMsgCallback;
+import com.leo.ipcsocket.server.entity.ServerConfig;
 import com.leo.ipcsocket.util.IpcLog;
 import com.leo.ipcsocket.util.ThreadUtils;
 

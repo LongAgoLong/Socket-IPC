@@ -7,9 +7,9 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.leo.ipcsocket.server.IServerMsgCallback;
+import com.leo.ipcsocket.server.callback.IServerMsgCallback;
 import com.leo.ipcsocket.server.IpcServerHelper;
-import com.leo.ipcsocket.server.ServerConfig;
+import com.leo.ipcsocket.server.entity.ServerConfig;
 import com.leo.ipcsocket.util.SocketParams;
 
 public class MainActivity extends AppCompatActivity implements IServerMsgCallback {

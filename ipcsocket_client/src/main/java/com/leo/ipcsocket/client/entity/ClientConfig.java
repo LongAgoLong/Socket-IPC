@@ -1,4 +1,4 @@
-package com.leo.ipcsocket.client;
+package com.leo.ipcsocket.client.entity;
 
 import android.os.Parcel;
 import android.os.Parcelable;

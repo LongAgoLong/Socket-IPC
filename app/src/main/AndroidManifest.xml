@@ -22,7 +22,7 @@
             </intent-filter>
         </activity>
 
-        <service android:name="com.leo.ipcsocket.server.IpcSocketService" />
+        <service android:name="com.leo.ipcsocket.server.service.IpcSocketService" />
     </application>
 
 </manifest>
